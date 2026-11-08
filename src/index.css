@@ -1,0 +1,71 @@
+/* =========================================================
+   EcoPuntos - Hoja de estilos fuente (Tailwind CSS v4)
+   Vite procesa este archivo con el plugin @tailwindcss/vite
+   ========================================================= */
+@import "tailwindcss";
+
+
+/* Tipografía del proyecto */
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---------- Componentes reutilizables ---------- */
+@layer components {
+  .tarjeta {
+    @apply rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200;
+  }
+
+  .titulo-pagina {
+    @apply text-2xl font-bold text-slate-800 sm:text-3xl;
+  }
+
+  .etiqueta {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+
+  .campo {
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800
+      placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2
+      focus:ring-emerald-200 disabled:bg-slate-100;
+  }
+
+  .campo.invalido {
+    @apply border-rose-500 focus:border-rose-500 focus:ring-rose-200;
+  }
+
+  .mensaje-error {
+    @apply mt-1 hidden text-sm text-rose-600;
+  }
+
+  .mensaje-error.visible {
+    @apply block;
+  }
+
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm
+      font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-1
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primario {
+    @apply bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500;
+  }
+
+  .btn-secundario {
+    @apply bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 focus:ring-slate-400;
+  }
+
+  .btn-peligro {
+    @apply bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-500;
+  }
+
+  .insignia {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+}
+
+/* Ventana de confirmación nativa (<dialog>) */
+dialog::backdrop {
+  background-color: rgb(15 23 42 / 0.5);
+}
