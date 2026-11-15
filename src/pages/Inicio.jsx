@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { ESTADOS_REPORTE, PUNTOS_ACOPIO, PUNTOS_POR_REPORTE, categoria, material, puntoAcopio } from '../data/catalogos'
-import { entregas, puntosDeReporte, recompensas, reportes } from '../data/db'
+import { ESTADOS_REPORTE, PUNTOS_POR_REPORTE, categoria, material } from '../data/catalogos'
+import { api } from '../services/api'
+import { useCargar } from '../hooks/useCargar'
+import Cargando, { MensajeError } from '../components/Cargando'
 import { fecha, fechaLarga, numero } from '../utils/formato'
 
 function TarjetaResumen({ titulo, valor, detalle, borde, color }) {
@@ -15,53 +17,46 @@ function TarjetaResumen({ titulo, valor, detalle, borde, color }) {
   )
 }
 
-// Une entregas, reportes y canjes en una sola lista ordenada por fecha
-function obtenerActividad(usuarioId) {
-  return [
-    ...entregas.deUsuario(usuarioId).map((e) => ({
-      id: e.id,
-      fecha: e.fecha,
-      icono: material(e.materialId).icono,
-      titulo: `Entregaste ${numero(e.kg)} kg de ${material(e.materialId).nombre.toLowerCase()}`,
-      detalle: puntoAcopio(e.puntoId)?.nombre || '',
-      puntos: `+${e.puntos}`,
-      color: 'text-emerald-600',
-    })),
-    ...reportes.todos().filter((r) => r.usuarioId === usuarioId).map((r) => ({
-      id: r.id,
-      fecha: r.fecha,
-      icono: categoria(r.categoriaId).icono,
-      titulo: `Reportaste: ${r.titulo}`,
-      detalle: `Estado: ${ESTADOS_REPORTE[r.estado].nombre}`,
-      puntos: puntosDeReporte(r) ? `+${puntosDeReporte(r)}` : '—',
-      color: puntosDeReporte(r) ? 'text-emerald-600' : 'text-slate-400',
-    })),
-    ...recompensas.canjesDeUsuario(usuarioId).map((c) => ({
-      id: c.id,
-      fecha: c.fecha,
-      icono: c.icono,
-      titulo: `Canjeaste: ${c.nombre}`,
-      detalle: `Código ${c.codigo}`,
-      puntos: `-${c.costo}`,
-      color: 'text-rose-600',
-    })),
-  ]
-    .sort((a, b) => b.fecha.localeCompare(a.fecha))
-    .slice(0, 6)
+// Convierte un movimiento que envía el backend en una fila de la lista de actividad
+function describirMovimiento(m) {
+  if (m.tipo === 'entrega') {
+    const mat = material(m.material)
+    return {
+      icono: mat?.icono, titulo: `Entregaste ${numero(m.kg)} kg de ${mat?.nombre.toLowerCase()}`,
+      detalle: m.detalle, puntos: `+${m.puntos}`, color: 'text-emerald-600',
+    }
+  }
+  if (m.tipo === 'reporte') {
+    return {
+      icono: categoria(m.categoria)?.icono, titulo: `Reportaste: ${m.titulo}`,
+      detalle: `Estado: ${ESTADOS_REPORTE[m.estado].nombre}`,
+      puntos: m.puntos ? `+${m.puntos}` : '—', color: m.puntos ? 'text-emerald-600' : 'text-slate-400',
+    }
+  }
+  return {
+    icono: m.icono, titulo: `Canjeaste: ${m.nombre}`, detalle: `Código ${m.codigo}`,
+    puntos: `${m.puntos}`, color: 'text-rose-600',
+  }
 }
 
 export default function Inicio() {
-  const { usuario, esAdmin, resumen, version } = useAuth()
+  const { usuario, esAdmin, resumen, actividad, reportesPendientes, refrescar } = useAuth()
+  const puntos = useCargar(api.puntosAcopio.listar)
   const [anchoBarra, setAnchoBarra] = useState(0)
 
-  const actividad = useMemo(() => obtenerActividad(usuario.id), [usuario.id, version])
-  const pendientes = useMemo(() => reportes.todos().filter((r) => r.estado === 'pendiente').length, [version])
+  // Al entrar al inicio se pide el resumen actualizado al backend
+  useEffect(() => {
+    refrescar()
+  }, [refrescar])
 
   // La barra de nivel arranca en 0 y se anima hasta el progreso real
   useEffect(() => {
+    if (!resumen) return
     const animacion = requestAnimationFrame(() => setAnchoBarra(resumen.progreso))
     return () => cancelAnimationFrame(animacion)
-  }, [resumen.progreso])
+  }, [resumen])
+
+  if (!resumen) return <Cargando texto="Cargando tu resumen..." />
 
   return (
     <>
@@ -76,7 +71,7 @@ export default function Inicio() {
       {esAdmin && (
         <section className="flex flex-col gap-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-amber-900">
-            <strong>Panel de administrador:</strong> hay <strong>{pendientes}</strong> reporte(s) ambiental(es) pendiente(s) por revisar.
+            <strong>Panel de administrador:</strong> hay <strong>{reportesPendientes}</strong> reporte(s) ambiental(es) pendiente(s) por revisar.
           </p>
           <Link to="/reportes?estado=pendiente" className="btn btn-primario">Revisar reportes</Link>
         </section>
@@ -142,31 +137,36 @@ export default function Inicio() {
                 Aún no tienes actividad. <Link to="/reciclar" className="font-semibold text-emerald-700 underline">Registra tu primera entrega</Link>.
               </li>
             )}
-            {actividad.map((a) => (
-              <li key={a.id} className="flex items-center gap-3 py-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl">{a.icono}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-slate-700">{a.titulo}</p>
-                  <p className="truncate text-xs text-slate-400">{fecha(a.fecha)} · {a.detalle}</p>
-                </div>
-                <span className={`font-bold ${a.color}`}>{a.puntos}</span>
-              </li>
-            ))}
+            {actividad.map((m) => {
+              const a = describirMovimiento(m)
+              return (
+                <li key={m.id} className="flex items-center gap-3 py-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl">{a.icono}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-slate-700">{a.titulo}</p>
+                    <p className="truncate text-xs text-slate-400">{fecha(m.fecha)} · {a.detalle}</p>
+                  </div>
+                  <span className={`font-bold ${a.color}`}>{a.puntos}</span>
+                </li>
+              )
+            })}
           </ul>
         </section>
       </div>
 
       <section>
         <h2 className="mb-3 text-xl font-bold text-slate-700">Puntos de acopio cercanos</h2>
+        {puntos.cargando && <Cargando texto="Cargando puntos de acopio..." />}
+        {puntos.error && <MensajeError mensaje={puntos.error} onReintentar={puntos.recargar} />}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PUNTOS_ACOPIO.map((p) => (
+          {puntos.datos.map((p) => (
             <article key={p.id} className="tarjeta">
               <h3 className="font-bold text-slate-700">{p.nombre}</h3>
               <p className="mt-1 text-sm text-slate-500">📌 {p.direccion}</p>
               <p className="text-sm text-slate-500">🕒 {p.horario}</p>
               <div className="mt-3 flex flex-wrap gap-1">
                 {p.materiales.map((id) => (
-                  <span key={id} className="insignia bg-emerald-50 text-emerald-800">{material(id).icono} {material(id).nombre}</span>
+                  <span key={id} className="insignia bg-emerald-50 text-emerald-800">{material(id)?.icono} {material(id)?.nombre}</span>
                 ))}
               </div>
             </article>

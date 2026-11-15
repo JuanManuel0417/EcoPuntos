@@ -1,4 +1,4 @@
-// Catálogos fijos de EcoPuntos (en el Laboratorio III vendrán de la base de datos)
+// Catálogos de la interfaz (íconos, nombres y colores). Las reglas se validan en el backend.
 
 // Puntos que se ganan por kilo y CO2 evitado aproximado por kilo
 export const MATERIALES = [
@@ -7,37 +7,6 @@ export const MATERIALES = [
   { id: 'vidrio', nombre: 'Vidrio', icono: '🍾', puntosPorKg: 8, co2PorKg: 0.3 },
   { id: 'metal', nombre: 'Metal y latas', icono: '🥫', puntosPorKg: 15, co2PorKg: 4 },
   { id: 'electronicos', nombre: 'Electrónicos', icono: '🔌', puntosPorKg: 20, co2PorKg: 2 },
-]
-
-export const PUNTOS_ACOPIO = [
-  {
-    id: 'pa1',
-    nombre: 'Punto Verde I.U. Pascual Bravo',
-    direccion: 'Calle 73 # 73A-226, Robledo',
-    horario: 'Lun a Vie, 7:00 a.m. - 6:00 p.m.',
-    materiales: ['plastico', 'carton', 'vidrio', 'metal', 'electronicos'],
-  },
-  {
-    id: 'pa2',
-    nombre: 'Centro de Acopio Robledo',
-    direccion: 'Carrera 80 # 65-10, Robledo',
-    horario: 'Lun a Sáb, 8:00 a.m. - 5:00 p.m.',
-    materiales: ['plastico', 'carton', 'vidrio', 'metal'],
-  },
-  {
-    id: 'pa3',
-    nombre: 'EcoEstación Parque Central',
-    direccion: 'Calle 50 # 45-20, Centro',
-    horario: 'Todos los días, 9:00 a.m. - 7:00 p.m.',
-    materiales: ['plastico', 'carton', 'metal'],
-  },
-  {
-    id: 'pa4',
-    nombre: 'Punto RAEE Belén',
-    direccion: 'Carrera 76 # 30-15, Belén',
-    horario: 'Mar a Sáb, 9:00 a.m. - 4:00 p.m.',
-    materiales: ['electronicos', 'metal'],
-  },
 ]
 
 export const CATEGORIAS_REPORTE = [
@@ -75,7 +44,4 @@ export const ICONOS_RECOMPENSA = ['🎁', '☕', '👜', '🌱', '🥤', '🏷�
 const buscarPorId = (lista, id) => lista.find((item) => item.id === id)
 
 export const material = (id) => buscarPorId(MATERIALES, id)
-export const puntoAcopio = (id) => buscarPorId(PUNTOS_ACOPIO, id)
 export const categoria = (id) => buscarPorId(CATEGORIAS_REPORTE, id)
-export const puntosAcopioPara = (materialId) =>
-  PUNTOS_ACOPIO.filter((p) => p.materiales.includes(materialId))

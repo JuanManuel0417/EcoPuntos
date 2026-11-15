@@ -1,67 +1,76 @@
-// Contexto de autenticación: guarda el usuario de la sesión y permite
-// que cualquier componente sepa quién está conectado y cuántos puntos tiene.
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { resumenUsuario, usuarios } from '../data/db'
+// Contexto de autenticación: guarda el usuario de la sesión (JWT) y el resumen
+// de puntos que entrega el backend, para que cualquier componente pueda usarlos.
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { api, token } from '../services/api'
 
-const CLAVE_SESION = 'ecopuntos_react_sesion'
 const AuthContext = createContext(null)
 
-function leerSesion() {
-  try {
-    return localStorage.getItem(CLAVE_SESION)
-  } catch {
-    return null
-  }
-}
-
-function escribirSesion(usuarioId) {
-  try {
-    if (usuarioId) localStorage.setItem(CLAVE_SESION, usuarioId)
-    else localStorage.removeItem(CLAVE_SESION)
-  } catch {
-    /* Sin LocalStorage la sesión no se puede recordar */
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [usuario, setUsuario] = useState(() => {
-    const id = leerSesion()
-    return id ? usuarios.porId(id) : null
-  })
-  // Cada vez que cambian los datos se incrementa la versión para recalcular el resumen
-  const [version, setVersion] = useState(0)
-  const refrescar = useCallback(() => setVersion((v) => v + 1), [])
+  const [usuario, setUsuario] = useState(null)
+  // Mientras se valida el token guardado no se decide si mostrar el login o la app
+  const [cargando, setCargando] = useState(() => !!token.leer())
+  // { resumen, actividad, reportesPendientes } que devuelve GET /api/resumen
+  const [panel, setPanel] = useState(null)
 
-  const iniciarSesion = useCallback((correo, password) => {
-    const encontrado = usuarios.porCorreo(correo)
-    if (!encontrado || encontrado.password !== password) {
-      return { ok: false, error: 'Correo o contraseña incorrectos.' }
+  const refrescar = useCallback(async () => {
+    try {
+      setPanel(await api.resumen())
+    } catch {
+      /* Si falla, se conserva el último resumen conocido */
     }
-    escribirSesion(encontrado.id)
-    setUsuario(encontrado)
-    return { ok: true }
   }, [])
 
-  const registrar = useCallback(({ nombre, correo, password }) => {
-    if (usuarios.porCorreo(correo)) return { ok: false, error: 'Ya existe una cuenta con ese correo.' }
-    const nuevo = usuarios.crear({ nombre, correo, password })
-    escribirSesion(nuevo.id)
-    setUsuario(nuevo)
-    return { ok: true }
-  }, [])
+  const abrirSesion = useCallback(
+    async ({ token: jwt, usuario: datosUsuario }) => {
+      token.guardar(jwt)
+      setUsuario(datosUsuario)
+      await refrescar()
+    },
+    [refrescar],
+  )
 
   const cerrarSesion = useCallback(() => {
-    escribirSesion(null)
+    token.borrar()
     setUsuario(null)
+    setPanel(null)
   }, [])
 
-  const resumen = useMemo(() => (usuario ? resumenUsuario(usuario.id) : null), [usuario, version])
+  // Al abrir la aplicación, si hay un token guardado se recupera el perfil
+  useEffect(() => {
+    if (!token.leer()) return
+    api.auth
+      .perfil()
+      .then(async ({ usuario: datosUsuario }) => {
+        setUsuario(datosUsuario)
+        await refrescar()
+      })
+      .catch(() => token.borrar())
+      .finally(() => setCargando(false))
+  }, [refrescar])
+
+  // Si el backend responde 401 (token vencido), se cierra la sesión
+  useEffect(() => {
+    window.addEventListener('ecopuntos:sesion-expirada', cerrarSesion)
+    return () => window.removeEventListener('ecopuntos:sesion-expirada', cerrarSesion)
+  }, [cerrarSesion])
+
+  const iniciarSesion = useCallback(
+    async (correo, password) => abrirSesion(await api.auth.login(correo, password)),
+    [abrirSesion],
+  )
+
+  const registrar = useCallback(
+    async ({ nombre, correo, password }) => abrirSesion(await api.auth.registro({ nombre, correo, password })),
+    [abrirSesion],
+  )
 
   const valor = {
     usuario,
+    cargando,
     esAdmin: usuario?.rol === 'admin',
-    resumen,
-    version,
+    resumen: panel?.resumen ?? null,
+    actividad: panel?.actividad ?? [],
+    reportesPendientes: panel?.reportesPendientes ?? 0,
     refrescar,
     iniciarSesion,
     registrar,

@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useUI } from '../context/UIContext'
 import { ICONOS_RECOMPENSA } from '../data/catalogos'
-import { recompensas } from '../data/db'
+import { api } from '../services/api'
+import { useCargar } from '../hooks/useCargar'
 import Campo from '../components/Campo'
+import Cargando, { MensajeError } from '../components/Cargando'
 import { claseCampo } from '../utils/estilos'
 import { fecha, numero } from '../utils/formato'
 import { validar, validarEntero } from '../utils/validaciones'
@@ -16,13 +18,14 @@ function FormularioRecompensa({ onCreada }) {
   const { notificar } = useUI()
   const [valores, setValores] = useState(valoresIniciales)
   const [errores, setErrores] = useState({})
+  const [enviando, setEnviando] = useState(false)
 
   const cambiar = (campo) => (e) => {
     setValores({ ...valores, [campo]: e.target.value })
     setErrores({ ...errores, [campo]: '' })
   }
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault()
     const nuevosErrores = validar(valores, {
       nombre: (v) => (v.length >= 3 ? '' : 'Mínimo 3 caracteres.'),
@@ -33,10 +36,18 @@ function FormularioRecompensa({ onCreada }) {
     setErrores(nuevosErrores)
     if (Object.keys(nuevosErrores).length) return
 
-    recompensas.crear({ ...valores, costo: Number(valores.costo), stock: Number(valores.stock) })
-    notificar('Recompensa agregada al catálogo.')
-    setValores(valoresIniciales)
-    onCreada()
+    setEnviando(true)
+    try {
+      await api.recompensas.crear({ ...valores, costo: Number(valores.costo), stock: Number(valores.stock) })
+      notificar('Recompensa agregada al catálogo.')
+      setValores(valoresIniciales)
+      onCreada()
+    } catch (error) {
+      if (error.errores && Object.keys(error.errores).length) setErrores(error.errores)
+      notificar(error.message, 'error')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -67,7 +78,9 @@ function FormularioRecompensa({ onCreada }) {
                  placeholder="10" value={valores.stock} onChange={cambiar('stock')} />
         </Campo>
         <div className="flex items-end sm:col-span-2 lg:col-span-5 lg:justify-end">
-          <button type="submit" className="btn btn-primario w-full sm:w-auto">Agregar recompensa</button>
+          <button type="submit" className="btn btn-primario w-full sm:w-auto" disabled={enviando}>
+            {enviando ? 'Guardando...' : 'Agregar recompensa'}
+          </button>
         </div>
       </form>
     </section>
@@ -105,13 +118,20 @@ function TarjetaRecompensa({ recompensa: p, saldo, esAdmin, onCanjear, onElimina
 }
 
 export default function Recompensas() {
-  const { usuario, esAdmin, resumen, version, refrescar } = useAuth()
+  const { esAdmin, resumen, refrescar } = useAuth()
   const { notificar, confirmar } = useUI()
+  const catalogo = useCargar(api.recompensas.listar)
+  const canjes = useCargar(api.canjes.listar)
   const [soloAlcanzables, setSoloAlcanzables] = useState(false)
 
-  const catalogo = useMemo(() => recompensas.todas(), [version])
-  const canjes = useMemo(() => recompensas.canjesDeUsuario(usuario.id), [usuario.id, version])
-  const visibles = catalogo.filter((p) => !soloAlcanzables || (p.costo <= resumen.saldo && p.stock > 0))
+  const saldo = resumen?.saldo ?? 0
+  const visibles = catalogo.datos.filter((p) => !soloAlcanzables || (p.costo <= saldo && p.stock > 0))
+
+  const actualizar = () => {
+    catalogo.recargar()
+    canjes.recargar()
+    refrescar()
+  }
 
   const canjear = async (p) => {
     const aceptar = await confirmar({
@@ -120,9 +140,13 @@ export default function Recompensas() {
       textoAceptar: 'Sí, canjear',
     })
     if (!aceptar) return
-    const resultado = recompensas.canjear(p.id, usuario.id)
-    notificar(resultado.ok ? `¡Canje exitoso! Tu código es ${resultado.canje.codigo} 🎉` : resultado.error, resultado.ok ? 'exito' : 'error')
-    refrescar()
+    try {
+      const { canje } = await api.recompensas.canjear(p.id)
+      notificar(`¡Canje exitoso! Tu código es ${canje.codigo} 🎉`)
+    } catch (error) {
+      notificar(error.message, 'error')
+    }
+    actualizar()
   }
 
   const eliminar = async (p) => {
@@ -133,9 +157,13 @@ export default function Recompensas() {
       peligro: true,
     })
     if (!aceptar) return
-    recompensas.eliminar(p.id)
-    notificar('Recompensa eliminada.', 'info')
-    refrescar()
+    try {
+      await api.recompensas.eliminar(p.id)
+      notificar('Recompensa eliminada.', 'info')
+      actualizar()
+    } catch (error) {
+      notificar(error.message, 'error')
+    }
   }
 
   return (
@@ -147,12 +175,12 @@ export default function Recompensas() {
         </div>
         <div className="rounded-xl bg-white/15 px-5 py-3 text-center">
           <p className="text-sm text-emerald-50">Tienes</p>
-          <p className="text-3xl font-extrabold">⭐ {numero(resumen.saldo)}</p>
+          <p className="text-3xl font-extrabold">⭐ {numero(saldo)}</p>
           <p className="text-sm text-emerald-50">puntos disponibles</p>
         </div>
       </section>
 
-      {esAdmin && <FormularioRecompensa onCreada={refrescar} />}
+      {esAdmin && <FormularioRecompensa onCreada={actualizar} />}
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -163,34 +191,43 @@ export default function Recompensas() {
             Solo las que puedo canjear
           </label>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibles.length === 0 && (
-            <p className="tarjeta py-10 text-center text-slate-400 sm:col-span-2 lg:col-span-3">
-              Aún no te alcanza para ninguna recompensa. <Link to="/reciclar" className="font-semibold text-emerald-700 underline">¡Sigue reciclando!</Link>
-            </p>
-          )}
-          {visibles.map((p) => (
-            <TarjetaRecompensa key={p.id} recompensa={p} saldo={resumen.saldo} esAdmin={esAdmin} onCanjear={canjear} onEliminar={eliminar} />
-          ))}
-        </div>
+        {catalogo.error && <MensajeError mensaje={catalogo.error} onReintentar={catalogo.recargar} />}
+        {catalogo.cargando ? (
+          <Cargando texto="Cargando recompensas..." />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibles.length === 0 && (
+              <p className="tarjeta py-10 text-center text-slate-400 sm:col-span-2 lg:col-span-3">
+                Aún no te alcanza para ninguna recompensa. <Link to="/reciclar" className="font-semibold text-emerald-700 underline">¡Sigue reciclando!</Link>
+              </p>
+            )}
+            {visibles.map((p) => (
+              <TarjetaRecompensa key={p.id} recompensa={p} saldo={saldo} esAdmin={esAdmin} onCanjear={canjear} onEliminar={eliminar} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="tarjeta">
         <h2 className="text-lg font-bold text-slate-700">Mis canjes</h2>
         <p className="text-sm text-slate-500">Presenta el código en el punto aliado para reclamar tu recompensa.</p>
-        <ul className="mt-4 divide-y divide-slate-100">
-          {canjes.length === 0 && <li className="py-8 text-center text-slate-400">Todavía no has canjeado recompensas.</li>}
-          {canjes.map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
-              <span className="text-2xl">{c.icono}</span>
-              <div className="flex-1">
-                <p className="font-medium text-slate-700">{c.nombre}</p>
-                <p className="text-xs text-slate-400">{fecha(c.fecha)} · -{numero(c.costo)} pts</p>
-              </div>
-              <code className="rounded-lg bg-slate-100 px-3 py-1 font-mono font-bold tracking-wider text-slate-700">{c.codigo}</code>
-            </li>
-          ))}
-        </ul>
+        {canjes.cargando ? (
+          <Cargando texto="Cargando canjes..." />
+        ) : (
+          <ul className="mt-4 divide-y divide-slate-100">
+            {canjes.datos.length === 0 && <li className="py-8 text-center text-slate-400">Todavía no has canjeado recompensas.</li>}
+            {canjes.datos.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
+                <span className="text-2xl">{c.icono}</span>
+                <div className="flex-1">
+                  <p className="font-medium text-slate-700">{c.nombre}</p>
+                  <p className="text-xs text-slate-400">{fecha(c.fecha)} · -{numero(c.costo)} pts</p>
+                </div>
+                <code className="rounded-lg bg-slate-100 px-3 py-1 font-mono font-bold tracking-wider text-slate-700">{c.codigo}</code>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </>
   )

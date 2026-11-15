@@ -1,0 +1,24 @@
+{
+  "name": "ecopuntos-backend",
+  "version": "1.0.0",
+  "description": "EcoPuntos - Backend (API REST) con Node.js, Express y MongoDB Atlas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node src/seed/seed.js"
+  },
+  "author": "Juan Manuel Gonzalez Mejia, Emmanuel Isaza, Michael Gonzalez Vahos",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.12.1"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

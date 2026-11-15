@@ -46,7 +46,7 @@ export default function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           <span className="rounded-full bg-white/15 px-3 py-1 text-sm font-semibold text-white" title="Puntos disponibles">
-            ⭐ {numero(resumen.saldo)} pts
+            ⭐ {numero(resumen?.saldo ?? 0)} pts
           </span>
           <span className="flex items-center gap-2 text-sm text-emerald-50">
             {usuario.nombre.split(' ')[0]} {esAdmin && <InsigniaAdmin />}
@@ -75,7 +75,7 @@ export default function Navbar() {
           <div className="flex flex-col gap-1 pt-3">{enlaces}</div>
           <div className="mt-3 flex items-center justify-between border-t border-emerald-600 pt-3 text-emerald-50">
             <span>
-              {usuario.nombre} {esAdmin && <InsigniaAdmin />} · ⭐ {numero(resumen.saldo)} pts
+              {usuario.nombre} {esAdmin && <InsigniaAdmin />} · ⭐ {numero(resumen?.saldo ?? 0)} pts
             </span>
             <button type="button" onClick={salir} className="btn bg-white/10 px-3 py-1.5 text-white hover:bg-white/20">
               Salir

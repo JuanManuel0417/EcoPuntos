@@ -7,9 +7,12 @@ import Reciclar from './pages/Reciclar'
 import Reportes from './pages/Reportes'
 import Recompensas from './pages/Recompensas'
 import NoEncontrada from './pages/NoEncontrada'
+import Cargando from './components/Cargando'
 
 export default function App() {
-  const { usuario } = useAuth()
+  const { usuario, cargando } = useAuth()
+
+  if (cargando) return <Cargando texto="Recuperando tu sesión..." pantallaCompleta />
 
   return (
     <Routes>

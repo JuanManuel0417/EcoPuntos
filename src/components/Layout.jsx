@@ -3,10 +3,11 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Navbar from './Navbar'
 import Footer from './Footer'
+import Cargando from './Cargando'
 
 // Plantilla de las páginas privadas: si no hay sesión, redirige al login
 export default function Layout() {
-  const { usuario } = useAuth()
+  const { usuario, cargando } = useAuth()
   const { pathname } = useLocation()
 
   // Al cambiar de página se vuelve al inicio del scroll
@@ -14,6 +15,7 @@ export default function Layout() {
     window.scrollTo(0, 0)
   }, [pathname])
 
+  if (cargando) return <Cargando texto="Recuperando tu sesión..." pantallaCompleta />
   if (!usuario) return <Navigate to="/login" replace />
 
   return (

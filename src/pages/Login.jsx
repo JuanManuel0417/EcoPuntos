@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { usuarios } from '../data/db'
 import Campo from '../components/Campo'
 import { claseCampo } from '../utils/estilos'
 import { validar, validarCorreo } from '../utils/validaciones'
@@ -45,6 +44,7 @@ function FormularioLogin() {
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState('')
   const [captcha, setCaptcha] = useState(nuevoCaptcha)
+  const [enviando, setEnviando] = useState(false)
 
   const cambiar = (campo) => (e) => {
     setValores({ ...valores, [campo]: e.target.value })
@@ -56,7 +56,7 @@ function FormularioLogin() {
     setValores((v) => ({ ...v, captcha: '' }))
   }
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault()
     setErrorGeneral('')
     const nuevosErrores = validar(valores, {
@@ -73,13 +73,16 @@ function FormularioLogin() {
       return
     }
 
-    const resultado = iniciarSesion(valores.correo, valores.password)
-    if (!resultado.ok) {
-      setErrorGeneral(resultado.error)
+    setEnviando(true)
+    try {
+      await iniciarSesion(valores.correo, valores.password)
+      navegar('/inicio')
+    } catch (error) {
+      setErrorGeneral(error.message)
       recargarCaptcha()
-      return
+    } finally {
+      setEnviando(false)
     }
-    navegar('/inicio')
   }
 
   return (
@@ -112,7 +115,9 @@ function FormularioLogin() {
 
       {errorGeneral && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{errorGeneral}</p>}
 
-      <button type="submit" className="btn btn-primario w-full py-2.5">Ingresar</button>
+      <button type="submit" className="btn btn-primario w-full py-2.5" disabled={enviando}>
+        {enviando ? 'Ingresando...' : 'Ingresar'}
+      </button>
 
       <div className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-900">
         <p className="font-semibold">Cuentas de prueba:</p>
@@ -128,6 +133,7 @@ function FormularioRegistro() {
   const navegar = useNavigate()
   const [valores, setValores] = useState({ nombre: '', correo: '', password: '', confirmar: '', terminos: false })
   const [errores, setErrores] = useState({})
+  const [enviando, setEnviando] = useState(false)
 
   const cambiar = (campo) => (e) => {
     const valor = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -135,14 +141,14 @@ function FormularioRegistro() {
     setErrores({ ...errores, [campo]: '' })
   }
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault()
     const nuevosErrores = validar(valores, {
       nombre: (v) => {
         if (v.length < 3) return 'Escribe tu nombre completo (mínimo 3 letras).'
         return /^[a-zA-ZÀ-ÿñÑ\s]+$/.test(v) ? '' : 'El nombre solo puede tener letras y espacios.'
       },
-      correo: (v) => validarCorreo(v) || (usuarios.porCorreo(v) ? 'Ya existe una cuenta con ese correo.' : ''),
+      correo: validarCorreo,
       password: (v) => {
         if (v.length < 6) return 'La contraseña debe tener al menos 6 caracteres.'
         return /\d/.test(v) && /[a-zA-Z]/.test(v) ? '' : 'Usa letras y números.'
@@ -153,9 +159,16 @@ function FormularioRegistro() {
     setErrores(nuevosErrores)
     if (Object.keys(nuevosErrores).length) return
 
-    const resultado = registrar(valores)
-    if (!resultado.ok) return setErrores({ correo: resultado.error })
-    navegar('/inicio')
+    setEnviando(true)
+    try {
+      await registrar(valores)
+      navegar('/inicio')
+    } catch (error) {
+      // El backend responde 409 si el correo ya está registrado
+      setErrores(error.status === 409 ? { correo: error.message } : { terminos: error.message })
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -193,7 +206,9 @@ function FormularioRegistro() {
         </label>
       </Campo>
 
-      <button type="submit" className="btn btn-primario w-full py-2.5">Crear cuenta</button>
+      <button type="submit" className="btn btn-primario w-full py-2.5" disabled={enviando}>
+        {enviando ? 'Creando cuenta...' : 'Crear cuenta'}
+      </button>
     </form>
   )
 }
@@ -222,7 +237,7 @@ export default function Login() {
             <li className="flex items-center gap-3"><span className="text-2xl">🎁</span> Canjea tus puntos por recompensas</li>
           </ul>
         </div>
-        <p className="text-sm text-emerald-100">Proyecto PPI · I.U. Pascual Bravo · Hecho con React</p>
+        <p className="text-sm text-emerald-100">Proyecto PPI · I.U. Pascual Bravo · React + Node.js + MongoDB</p>
       </section>
 
       <section className="flex items-center justify-center p-4 sm:p-8">
