@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { AvisoServidorLento } from '../components/Cargando'
 import Campo from '../components/Campo'
 import { claseCampo } from '../utils/estilos'
 import { validar, validarCorreo } from '../utils/validaciones'
@@ -118,6 +119,7 @@ function FormularioLogin() {
       <button type="submit" className="btn btn-primario w-full py-2.5" disabled={enviando}>
         {enviando ? 'Ingresando...' : 'Ingresar'}
       </button>
+      <AvisoServidorLento activo={enviando} />
 
       <div className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-900">
         <p className="font-semibold">Cuentas de prueba:</p>
@@ -209,6 +211,7 @@ function FormularioRegistro() {
       <button type="submit" className="btn btn-primario w-full py-2.5" disabled={enviando}>
         {enviando ? 'Creando cuenta...' : 'Crear cuenta'}
       </button>
+      <AvisoServidorLento activo={enviando} />
     </form>
   )
 }

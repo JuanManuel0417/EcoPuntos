@@ -17,8 +17,13 @@ mongoose.set("toJSON", {
 
 const app = express();
 
-// Solo el frontend configurado puede consumir la API desde el navegador
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173" }));
+// Solo los frontends configurados pueden consumir la API desde el navegador.
+// FRONTEND_URL acepta varias direcciones separadas por comas (local y producción).
+const origenesPermitidos = (process.env.FRONTEND_URL || "http://localhost:5173")
+  .split(",")
+  .map((origen) => origen.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+app.use(cors({ origin: origenesPermitidos }));
 // Límite de 2 MB para permitir las fotos de los reportes
 app.use(express.json({ limit: "2mb" }));
 

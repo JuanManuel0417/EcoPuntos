@@ -1,0 +1,16 @@
+# Configuración de despliegue del frontend en Netlify
+# Netlify vuelve a construir y publicar el sitio en cada push a la rama main (CI/CD con GitHub).
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# React Router maneja las rutas en el navegador: cualquier ruta (/inicio, /reportes...)
+# debe responder con index.html para que no aparezca un error 404 al recargar la página.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
