@@ -1,5 +1,6 @@
 // Todas las rutas de la API bajo el prefijo /api
 const express = require("express");
+const { version } = require("../../package.json");
 const { verificarToken, soloAdmin } = require("../middlewares/auth");
 const auth = require("../controllers/authController");
 const puntosAcopio = require("../controllers/puntosAcopioController");
@@ -11,7 +12,7 @@ const resumen = require("../controllers/resumenController");
 const router = express.Router();
 
 // Estado de la API
-router.get("/", (req, res) => res.json({ mensaje: "API de EcoPuntos funcionando", version: "1.0.0" }));
+router.get("/", (req, res) => res.json({ mensaje: "API de EcoPuntos funcionando", version, entorno: process.env.NODE_ENV || "desarrollo" }));
 router.get("/catalogos", resumen.obtenerCatalogos);
 
 // Autenticación (públicas, excepto el perfil)
