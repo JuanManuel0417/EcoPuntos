@@ -6,10 +6,23 @@ Proyecto PPI · Programación Web · I.U. Pascual Bravo · 2026 · Grupo 051
 Integrantes: Juan Manuel Gonzalez Mejia, Emmanuel Isaza y Michael Gonzalez Vahos
 Docente: Julio Cesar Martinez Zarate
 
+## 🚀 Aplicación en producción
+
+| Capa | Plataforma | Dirección |
+| --- | --- | --- |
+| Frontend | Netlify | <https://ecopuntos-pascualbravo.netlify.app> |
+| Backend (API) | Render | <https://ecopuntos-api.onrender.com/api> |
+| Base de datos | MongoDB Atlas | Clúster `Cluster0`, base `ecopuntos` |
+
+Despliegue continuo (CI/CD con GitHub): cada push a la rama `main` hace que **Netlify** vuelva a construir el frontend (`npm run build`, según [`netlify.toml`](netlify.toml)) y que **Render** vuelva a desplegar el backend (carpeta `backend/`, `npm ci` y `npm start`).
+
+> El backend usa el plan gratuito de Render: si no recibe visitas se apaga y la primera petición puede tardar hasta un minuto mientras se activa.
+
 | Laboratorio | Qué contiene | Dónde |
 | --- | --- | --- |
 | II | Frontend en React con LocalStorage | Etiqueta [`laboratorio-2`](../../tree/laboratorio-2) |
-| III | Backend en Node.js + MongoDB Atlas, integrado con el frontend | Rama `main` (esta versión) |
+| III | Backend en Node.js + MongoDB Atlas, integrado con el frontend | Rama `main` |
+| Despliegue | Frontend en Netlify, backend en Render y base en MongoDB Atlas | Rama `main` (esta versión) |
 
 ## Arquitectura
 
